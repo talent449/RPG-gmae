@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>小女孩的闖關冒險</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=DotGothic16&display=swap');
+        body { margin: 0; overflow: hidden; background: #222; font-family: 'DotGothic16', sans-serif; touch-action: none;
+        }
+
+        /* === 遊戲主畫面 === */
+        #game-container {
+            position: relative;
+            width: 100vw; height: 100vh;
+            overflow: hidden; transition: background 0.5s;
+            display: none; /* 初始隱藏，直到選擇角色 */
+        }
+
+        /* === 角色選擇介面樣式 === */
+        #role-select-screen {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #222;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            text-align: center;
+        }
+        .role-btn {
+            background: #4caf50;
+            color: white;
+            border: 4px solid #fff;
+            padding: 15px 30px;
+            margin: 10px;
+            font-size: 1.5em;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: transform 0.2s, background 0.2s;
+        }
+        .role-btn:hover {
+            background: #388e3c;
+            transform: scale(1.05);
+        }
+
+        /* === 主角樣式 (略) === */
+        #player {
+            position: absolute;
+            width: 10%; height: 10%;
+            z-index: 10;
+            transition: all 0.1s ease-out;
+            background-image: url('me.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center bottom; 
+            font-size: 0;
+        }
+        #player.walking {
+            transform: translateY(-5px);
+        }
+
+        /* === 物件樣式 (略) === */
+        .obj {
+            position: absolute;
+            display: flex; justify-content: center; align-items: flex-end;
+            filter: drop-shadow(0 5px 5px rgba(0,0,0,0.3));
+            transition: all 0.3s;
+        }
+
+        .obj-sprite {
+            width: 50px; 
+            height: 50px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center bottom; 
+            font-size: 0; 
+        }
+        .quest-box {
+            cursor: pointer;
+        }
+
+        .obj-locked { 
+            filter: grayscale(100%) opacity(50%) drop-shadow(0 5px 5px rgba(0,0,0,0.3));
+            cursor: not-allowed; 
+        }
+
+        .sprite-dark-box { 
+            background-image: url('dark-box.png');
+            width: 70px; 
+            height: 70px;
+        }
+        .sprite-green-box { 
+            background-image: url('green-box.png');
+            width: 70px; 
+            height: 70px;
+        }
+        .sprite-red-box { 
+            background-image: url('red-box.png');
+            width: 70px; 
+            height: 70px;
+        }
+        
+        .sprite-ghost {
+            background-image: url('ghost.png');
+            width: 60px;
+            height: 60px;
+            animation: float 4s ease-in-out infinite; 
+        }
+        .sprite-gold-box { 
+            background-image: url('gold-box.png');
+            width: 70px;
+            height: 70px;
+        }
+        .sprite-key { 
+            font-size: 60px; 
+            text-shadow: 0 0 5px #000, 0 0 10px rgba(0,0,0,0.5); 
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .sprite-bghost {
+            background-image: url('bghost.png');
+            width: 65px;
+            height: 65px;
+            animation: float 4s ease-in-out infinite; 
+        }
+        .sprite-spider {
+            background-image: url('spider.png');
+            width: 55px;
+            height: 55px;
+            animation: float 5s ease-in-out infinite reverse; 
+        }
+        .sprite-head {
+            background-image: url('head.png');
+            width: 60px;
+            height: 60px;
+	    animation: float 5s ease-in-out infinite reverse;
+        }
+        .sprite-princess { 
+            background-image: url('princess.png');
+            width: 80px;
+            height: 100px;
+            background-size: contain;
+        }
+
+        @keyframes float {
+            0% { transform: translate(0, 0) rotate(0deg); opacity: 0.8; }
+            50% { transform: translate(0, -15px) rotate(1deg); opacity: 1; }
+            100% { transform: translate(0, 0) rotate(0deg); opacity: 0.8; }
+        }
+        @keyframes swing {
+            0% { transform: rotate(-5deg); }
+            100% { transform: rotate(5deg); }
+        }
+
+
+        /* === 對話框樣式 (略) === */
+        #dialog-box {
+            position: fixed;
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 80%; max-width: 400px;
+            padding: 20px; background: white; border: 5px solid #333;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5); z-index: 100;
+            display: none;
+        }
+        #dialog-title { font-size: 1.5em;
+            margin-bottom: 10px; color: #d32f2f; }
+        #dialog-content { margin-bottom: 15px;
+        }
+        #ans-input { width: calc(100% - 100px); padding: 5px; font-family: inherit; font-size: 1em;
+            border: 2px solid #ccc;}
+        #ans-input:focus { border-color: #333; outline: none;
+        }
+        #submit-btn, #dialog-msg-only { 
+            padding: 5px 10px;
+            background: #4caf50; color: white; border: none; cursor: pointer; margin-left: 5px;
+            font-family: inherit;
+        }
+        #submit-btn:hover, #dialog-msg-only:hover { background: #388e3c;
+        }
+
+        /* === 資訊欄位 (略) === */
+        #info-bar { position: fixed;
+            top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 10px; z-index: 50; border-radius: 5px;
+        }
+        /* ✨ 修正：初始隱藏控制按鈕，避免覆蓋角色選擇畫面 ✨ */
+        #controls { 
+            position: fixed; 
+            bottom: 10px; 
+            right: 10px; 
+            display: none; /* 預設隱藏 */
+            flex-direction: column;
+            z-index: 50; 
+        }
+        .control-btn { width: 50px; height: 50px; background: rgba(0,0,0,0.5); color: white;
+            border: none; margin: 2px; font-size: 20px; cursor: pointer; }
+        .control-btn:active { background: rgba(0,0,0,0.8);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="role-select-screen">
+        <h2>選擇一位挑戰者</h2>
+        <button class="role-btn" onclick="startGame('hard')">
+            Sherry (二年級): 綜合難度
+        </button>
+        <button class="role-btn" onclick="startGame('easy')">
+            Jennie (5歲): 幼兒難度
+        </button>
+        <p style="margin-top: 30px;">(點擊後請務必再次點擊方向鍵以開啟背景音樂)</p>
+    </div>
+
+    <div id="game-container">
+        <div id="map-objects"></div>
+        <div id="player"></div>
+    </div>
+
+    <div id="info-bar">
+        <div id="map-name">神奇森林 (第1關)</div>
+        <div>分數: <span id="score">0/9</span></div>
+    </div>
+
+    <div id="dialog-box">
+        <div id="dialog-title"></div>
+        <div id="dialog-content"></div>
+        <div id="dialog-input-area">
+            <input type="text" id="ans-input" placeholder="請輸入答案">
+            <button id="submit-btn" onclick="checkAnswer()">確認</button>
+        </div>
+        <button id="dialog-msg-only" style="display: none;">關閉/確認</button>
+    </div>
+
+    <div id="controls">
+        <button class="control-btn" onmousedown="move('up')" ontouchstart="move('up')" onmouseup="stop()" ontouchend="stop()">↑</button>
+        <div>
+            <button class="control-btn" onmousedown="move('left')" ontouchstart="move('left')" onmouseup="stop()" ontouchend="stop()">←</button>
+            <button 
+                class="control-btn" onmousedown="move('right')" ontouchstart="move('right')" onmouseup="stop()" ontouchend="stop()">→</button>
+        </div>
+        <button class="control-btn" onmousedown="move('down')" ontouchstart="move('down')" onmouseup="stop()" ontouchend="stop()">↓</button>
+    </div>
+
+    <audio id="bgm-player" src="bg music.mp3" autoplay loop muted></audio>
+    
+    <audio id="sfx-correct" src="correct.mp3"></audio>
+    <audio id="sfx-wrong" src="wrong.mp3"></audio>
+    <audio id="bgm-mapC" src="bg3 music.mp3" loop muted></audio>
+
+    <script>
+        /* ================= 題庫區 (不變) ================= */
+
+        function selectRandom(array, count) {
+            const shuffled = array.sort(() => 0.5 - Math.random());
+            return shuffled.slice(0, count);
+        }
+
+        const rawQuestions = {
+            easy_math: [
+                {q: "2 + 3 = ?", a: "5"},
+                {q: "7 - 4 = ?", a: "3"},
+                {q: "1 + 6 = ?", a: "7"},
+                {q: "9 - 2 = ?", a: "7"},
+                {q: "5 + 5 = ?", a: "10"}
+            ],
+            easy_abc: [
+                {q: "字母表上，A 後面是哪個字母？", a: "B"},
+                {q: "apple 這個單字的第一個字母是？", a: "A"},
+                {q: "cat 這個單字有幾個字母？", a: "3"},
+                {q: "Z 前面的字母是？", a: "Y"}
+            ],
+            easy_color: [
+                {q: "天空是什麼顏色？(中文)", a: "藍"},
+                {q: "請輸入 RED 的中文顏色。", a: "紅"},
+                {q: "香蕉是什麼顏色？(中文)", a: "黃"},
+                {q: "請輸入 YELLOW 的中文顏色。", a: "黃"}
+            ],
+            hard_math: [
+                {q: "媽媽烤了 35 個餅乾，分給小明和他 4 個朋友，每人能分到幾個？", a: "7"},
+                {q: "妹妹有 150 元，買了一枝 75 元的鋼筆和一本 25 元的筆記本，還剩多少元？", a: "50"},
+                {q: "一盒雞蛋有 10 顆，買 5 盒，煮掉 8 顆，還剩下幾顆？", a: "42"},
+                {q: "一輛公車上原來有 12 人，上車 9 人，下車 4 人，現在車上有幾人？", a: "17"},
+                {q: "小華有 48 張貼紙，分給 3 位同學，他自己也拿一份，每人分到幾張？", a: "12"} 
+            ],
+            hard_eng_possessive: [
+                {q: "This book is (I/mine).", a: "mine"},
+                {q: "___ pencil is this? It's Lucy's. (Who/Whose)", a: "Whose"},
+                {q: "The dog is (he/his) pet.", a: "his"},
+                {q: "The cat is (she/hers).", a: "hers"},
+                {q: "That house is (they/theirs).", a: "theirs"}
+            ],
+            hard_eng_vocabulary: [
+                {q: "Please give me the ___. I need to measure the table. (Ruler/Rubber)", a: "Ruler"},
+                {q: "I need to stick the paper. Where is the ___? (Paint/Glue stick)", a: "Glue stick"},
+                {q: "My hobby is to ___ the beautiful flowers. (Take pictures/Wash clothes)", a: "Take pictures"},
+                {q: "I like to ___ big castles in my notebook. (Draw/Eat)", a: "Draw"},
+                {q: "Every night, I will ___ before going to bed. (Take a bath/Play games)", a: "Take a bath"}
+            ],
+            hard_family_math: [
+                {q: "媽媽有三個兄弟姊妹，所以你有幾個阿姨和叔叔？(不包含姑姑)", a: "3"},
+                {q: "我有兩個表姐、一個堂弟和一個表妹，我有幾個表兄弟姊妹？", a: "4"},
+                {q: "爺爺有 4 個兒子，每個兒子有 2 個孩子，總共有幾個孫子？", a: "8"} 
+            ],
+            hard_chi_homophone: [
+                {q: "天空萬里無雲，是個大（睛 / 晴 / 情）天。", a: "晴"},
+                {q: "這件衣服很（輕 / 晴 / 清），一點都不重。", a: "輕"},
+                {q: "請你把（青 / 清 / 輕）潔隊的制服穿好。", a: "清"},
+                {q: "爸爸的公事 （袋 / 帶） 裡裝著重要的文件。", a: "袋"},
+                {q: "他幫了我，我應該向他（到 / 道）謝。", a: "道"},
+		{q: "小明正在等（後 / 候）公車來。", a: "候"},
+		{q: "（近 / 進）期很多小蟲在亂飛，大家要小心。", a: "近"}
+
+            ]
+        };
+
+        let randomizedQuestions = {};
+        let totalQuestionCount = 9; 
+
+        function generateQuestions(difficulty) {
+            randomizedQuestions = {};
+            
+            if (difficulty === 'easy') {
+                const easyQs = [
+                    ...selectRandom(rawQuestions.easy_math, 3), 
+                    ...selectRandom(rawQuestions.easy_abc, 3),
+                    ...selectRandom(rawQuestions.easy_color, 3) 
+                ];
+                
+                easyQs.forEach((q, index) => {
+                    randomizedQuestions[index + 1] = q; 
+                });
+
+                randomizedQuestions[11] = {q: "找到通往城堡的鑰匙了！(前往下一關)", a: "ok", type: "key", nextMap: "B", req: [1, 2, 3]};
+                randomizedQuestions[12] = {q: "這是通往下一關的金色寶箱！(前往下一關)", a: "ok", type: "key", nextMap: "C", req: [4, 5, 6]};
+                randomizedQuestions[10] = {q: "恭喜通關！公主在等著你！(輸入 ok)", a: "ok", type: "end", req: [7, 8, 9]};
+
+            } else { 
+                const mapA_Qs = selectRandom(rawQuestions.hard_math, 3);
+                mapA_Qs.forEach((q, index) => {
+                    randomizedQuestions[index + 1] = q; 
+                });
+                randomizedQuestions[11] = {q: "找到通往城堡的鑰匙了！(前往下一關)", a: "ok", type: "key", nextMap: "B", req: [1, 2, 3]};
+
+                const mapB_Qs = [
+                    ...selectRandom(rawQuestions.hard_eng_possessive, 2),
+                    ...selectRandom(rawQuestions.hard_family_math, 1)
+                ];
+                mapB_Qs.forEach((q, index) => {
+                    randomizedQuestions[index + 4] = q; 
+                });
+                randomizedQuestions[12] = {q: "這是通往下一關的金色寶箱！(前往下一關)", a: "ok", type: "key", nextMap: "C", req: [4, 5, 6]};
+                
+                const mapC_Qs = [
+                    ...selectRandom(rawQuestions.hard_chi_homophone, 2),
+                    ...selectRandom(rawQuestions.hard_eng_vocabulary, 1)
+                ];
+                mapC_Qs.forEach((q, index) => {
+                    randomizedQuestions[index + 7] = q; 
+                });
+                randomizedQuestions[10] = {q: "恭喜通關！媽媽生日是？(mmdd)", a: "1206", type: "end", req: [7, 8, 9]};
+            }
+            
+            document.getElementById('score').innerText = solvedIds.length + "/" + totalQuestionCount;
+        }
+
+        /* ================= 遊戲啟動函式 (已修正) ================= */
+
+        function startGame(difficulty) {
+            // 隱藏選擇介面
+            document.getElementById('role-select-screen').style.display = 'none';
+            // 顯示遊戲容器
+            document.getElementById('game-container').style.display = 'block';
+            // ✨ 修正：顯示控制按鈕 ✨
+            document.getElementById('controls').style.display = 'flex';
+
+            // 1. 生成題目
+            generateQuestions(difficulty);
+
+            // 2. 開始遊戲
+            loadMap("A"); 
+            startGameLoop(); 
+        }
+
+
+        /* ================= 地圖和物件配置 (不變) ================= */
+
+        const maps = {
+            A: {
+                name: "神奇森林 (第1關)",
+                bg: "#66bb6a",
+                bgPattern: "url('map_background_A.png') no-repeat center center / contain",
+                objects: [
+                    {id: 1, icon: "❓", qType: "dark-box", x: 25, y: 70}, 
+                    {id: 2, icon: "❓", qType: "green-box", x: 80, y: 40}, 
+                    {id: 3, icon: "❓", qType: "red-box", x: 50, y: 20},
+                    {id: 11, icon: "🗝️", x: 80, y: 20, type: "key", nextMap: "B", req: [1, 2, 3]},
+                    {type: "dec", icon: "🌲", x: 10, y: 10}, 
+                    {type: "dec", icon: "🏡", x: 50, y: 10}, 
+                    {type: "dec", icon: "🌲", x: 90, y: 80}
+                ],
+                start: { x: 35, y: 80 } 
+            },
+            
+            B: {
+                name: "英文城堡 (第2關)",
+                bg: "#5d4037",
+                bgPattern: "url('map_background_B.png') no-repeat center center / cover",
+                objects: [
+                    {id: 4, icon: "❓", qType: "ghost", x: 30, y: 40}, 
+                    {id: 5, icon: "❓", qType: "ghost", x: 70, y: 40}, 
+                    {id: 6, icon: "❓", qType: "ghost", x: 20, y: 70}, 
+                    {id: 12, icon: "🔑", qType: "gold-box", x: 50, y: 10, type: "key", nextMap: "C", req: [4, 5, 6]},
+                    
+                    {type: "dec", icon: "🕯️", x: 20, y: 20}, {type: "dec", icon: "🕯️", x: 80, y: 20}, {type: "dec", icon: "🏰", x: 50, y: 50, scale: 2}
+                ],
+                start: { x: 50, y: 90 }
+            },
+            
+            C: {
+                name: "恐怖森林 (最終關)",
+                bg: "#3e2723", 
+                bgPattern: "url('map_background_C.png') no-repeat center center / cover",
+                objects: [
+                    {id: 7, icon: "❓", qType: "bghost", x: 10, y: 15}, 
+                    {id: 8, icon: "❓", qType: "spider", x: 40, y: 50}, 
+                    {id: 9, icon: "❓", qType: "head", x: 80, y: 80}, 
+                    {id: 10, icon: "❓", qType: "gold-box", x: 50, y: 20, type: "end", req: [7, 8, 9]}, 
+                    
+                    {type: "dec", icon: "🕸️", x: 10, y: 10}, 
+                    {type: "dec", icon: "🦇", x: 90, y: 90}
+                ],
+                start: { x: 50, y: 90 }
+            }
+        };
+
+        /* ================= 核心程式 (不變) ================= */
+        
+        let player = { x: 50, y: 90, speed: 1.5, el: document.getElementById('player') };
+        let keys = {};
+        let currentMapKey = "A";
+        let moveDirection = null;
+        let gameLoop;
+        let solvedIds = [];
+        let activeObj = null;
+
+        // 鍵盤監聽... 
+        window.addEventListener('keydown', e => { 
+            keys[e.key] = true;
+            unmuteBGM(); 
+        });
+        window.addEventListener('keyup', e => { keys[e.key] = false; });
+
+        function playBGM(mapKey) {
+            const bgm1 = document.getElementById('bgm-player');
+            const bgm3 = document.getElementById('bgm-mapC');
+            
+            [bgm1, bgm3].forEach(bgm => {
+                if(bgm) {
+                    bgm.pause();
+                    bgm.currentTime = 0;
+                    if(bgm.id === 'bgm-mapC' && mapKey !== 'C') bgm.muted = true;
+                    if(bgm.id === 'bgm-player' && mapKey === 'C') bgm.muted = true;
+                }
+            });
+            
+            let targetBGM = (mapKey === 'C' && bgm3) ? bgm3 : bgm1;
+            
+            if (targetBGM && !targetBGM.muted) {
+                targetBGM.play().catch(e => { console.log("BGM 播放失敗：", e); });
+            }
+        }
+        
+        function unmuteBGM() {
+            const bgm1 = document.getElementById('bgm-player');
+            const bgm3 = document.getElementById('bgm-mapC');
+            
+            let currentBGM = (currentMapKey === 'C' && bgm3) ? bgm3 : bgm1;
+            
+            if (currentBGM && currentBGM.muted) {
+                currentBGM.muted = false; 
+                currentBGM.play().catch(e => { console.log("BGM 播放失敗：", e); });
+                
+                document.getElementById('controls').removeEventListener('touchstart', unmuteBGM, { once: true });
+                document.getElementById('controls').removeEventListener('mousedown', unmuteBGM, { once: true });
+            }
+        }
+        
+        document.getElementById('controls').addEventListener('touchstart', unmuteBGM, { once: true });
+        document.getElementById('controls').addEventListener('mousedown', unmuteBGM, { once: true });
+
+        function startGameLoop() {
+            clearInterval(gameLoop);
+            gameLoop = setInterval(() => {
+                if(document.getElementById('dialog-box').style.display === 'block') return;
+
+                let dx = 0; let dy = 0;
+                
+                if (keys['ArrowUp'] || moveDirection === 'up') dy = -1;
+            
+                if (keys['ArrowDown'] || moveDirection === 'down') dy = 1;
+                if (keys['ArrowLeft'] || moveDirection === 'left') dx = -1;
+                if (keys['ArrowRight'] || moveDirection === 'right') dx = 1;
+
+                if (dx !== 0 || dy !== 0) {
+                
+                    player.x += dx * player.speed * 0.4;
+                    player.y += dy * player.speed * 0.4;
+                    
+                    if(player.x < 2) player.x = 2; if(player.x > 95) player.x = 95;
+             
+                    if(player.y < 5) player.y = 5; if(player.y > 95) player.y = 95;
+
+                    player.el.style.left = player.x + "%";
+                    player.el.style.top = player.y + "%";
+                    player.el.classList.add('walking');
+                    checkCollision(); 
+                } else {
+                    player.el.classList.remove('walking');
+                }
+            }, 20);
+        }
+
+        function loadMap(mapKey) {
+            currentMapKey = mapKey;
+            const map = maps[mapKey];
+            const container = document.getElementById('game-container');
+            const objContainer = document.getElementById('map-objects');
+            
+            container.style.backgroundColor = map.bg;
+            container.style.background = map.bgPattern;
+            document.getElementById('map-name').innerText = map.name;
+
+            playBGM(mapKey);
+
+            objContainer.innerHTML = '';
+            map.objects.forEach(obj => {
+                let isSolved = solvedIds.includes(obj.id);
+                
+                if(obj.id && isSolved && obj.type !== 'end') return; 
+
+                let el = document.createElement('div');
+                el.className = 'obj obj-sprite ' + (obj.type === 'dec' ? '' : 'quest-box');
+     
+           
+                if (obj.qType) {
+                    el.classList.add(`sprite-${obj.qType}`);
+                } 
+                else if (obj.icon === "🗝️") {
+                     el.classList.add('sprite-key');
+                }
+
+                if (obj.id === 10 && isSolved) {
+                    el.classList.remove(`sprite-${obj.qType}`); 
+                    el.classList.add('sprite-princess'); 
+                    el.classList.remove('quest-box'); 
+                    el.dataset.id = obj.id;
+                    el.id = `obj-${obj.id}`;
+                    el.innerText = ""; 
+                } else {
+                    el.innerText = obj.icon;
+                }
+       
+          
+                el.style.left = obj.x + "%";
+                el.style.top = obj.y + "%";
+                if(obj.scale) el.style.transform = `scale(${obj.scale})`;
+                
+                if(obj.id) {
+                  
+                    el.dataset.id = obj.id;
+                    el.id = `obj-${obj.id}`;
+                    if(isLocked(obj.id)) {
+                        el.classList.add('obj-locked');
+                    }
+                }
+                objContainer.appendChild(el);
+            });
+            
+            player.x = map.start.x;
+            player.y = map.start.y;
+            
+            player.el.style.left = player.x + "%";
+            player.el.style.top = player.y + "%";
+        }
+
+        function isLocked(id) {
+            const q = randomizedQuestions[id]; 
+            if (!q || !q.req) return false;
+            return !q.req.every(reqId => solvedIds.includes(reqId));
+        }
+
+        function checkCollision() {
+            const map = maps[currentMapKey];
+            map.objects.forEach(obj => {
+                if(!obj.id || solvedIds.includes(obj.id)) {
+                    if (obj.id === 10 && solvedIds.includes(10)) return;
+                    return;
+                }
+                
+                let dist = Math.sqrt(Math.pow(player.x - obj.x, 2) + Math.pow(player.y - obj.y, 2));
+                if(dist < 5) {
+                    handleInteraction(obj.id);
+                }
+            });
+        }
+        
+        function handleInteraction(id) {
+            if (isLocked(id)) {
+                showSystemMsg("🔒 這裡鎖住了！", "請先去解開其他的謎題，才能開啟這裡！");
+                bouncePlayer(); 
+                return;
+            }
+            openDialog(id);
+        }
+
+        function bouncePlayer() {
+            player.y += 5;
+            player.el.style.top = player.y + "%";
+        }
+
+        function openDialog(id) {
+            keys = {};
+            moveDirection = null; 
+            activeObj = id;
+            const q = randomizedQuestions[id];
+            
+            const box = document.getElementById('dialog-box');
+            document.getElementById('dialog-title').innerText = (q.type === 'end') ? "最終試煉！" : "發現謎題！";
+            document.getElementById('dialog-content').innerHTML = q.q;
+            document.getElementById('ans-input').value = "";
+            if(q.a.toLowerCase() === "ok") {
+                document.getElementById('dialog-input-area').style.display = 'none';
+                const msgBtn = document.getElementById('dialog-msg-only');
+                msgBtn.style.display = 'block';
+                msgBtn.onclick = function() { checkAnswer(true); };
+            } else {
+                document.getElementById('dialog-input-area').style.display = 'block';
+                document.getElementById('dialog-msg-only').style.display = 'none';
+                document.getElementById('ans-input').focus();
+            }
+            box.style.display = 'block';
+        }
+
+        function showSystemMsg(title, msg) {
+            const box = document.getElementById('dialog-box');
+            document.getElementById('dialog-title').innerText = title;
+            document.getElementById('dialog-content').innerText = msg;
+            document.getElementById('dialog-input-area').style.display = 'none';
+            
+            const msgBtn = document.getElementById('dialog-msg-only');
+            msgBtn.style.display = 'block';
+            msgBtn.onclick = closeDialog;
+            box.style.display = 'block';
+        }
+
+        function updateObjectLockStatus() {
+            const map = maps[currentMapKey];
+            map.objects.forEach(obj => {
+                const el = document.getElementById(`obj-${obj.id}`);
+                if (!obj.id || solvedIds.includes(obj.id) && obj.type !== 'end') {
+                    if (el) el.style.display = 'none'; 
+                    return;
+                }
+                
+                if (el) {
+                    if (!isLocked(obj.id)) {
+                        el.classList.remove('obj-locked'); 
+                    }
+                }
+            });
+        }
+
+        function checkAnswer(isAutoPass) {
+            const q = randomizedQuestions[activeObj];
+            let val = document.getElementById('ans-input').value.trim();
+            
+            if (isAutoPass || val.toLowerCase() === q.a.toLowerCase()) {
+                playAudio('sfx-correct');
+                solvedIds.push(activeObj); 
+                closeDialog();
+                
+                document.getElementById('score').innerText = solvedIds.length + "/" + totalQuestionCount;
+                
+                if (q.type === 'end') {
+                    const finalObjEl = document.getElementById(`obj-${activeObj}`);
+                    if (finalObjEl) {
+                        finalObjEl.classList.remove(`sprite-${q.qType}`); 
+                        finalObjEl.classList.add('sprite-princess'); 
+                        finalObjEl.classList.remove('quest-box'); 
+                        finalObjEl.innerText = "";
+                        finalObjEl.style.filter = 'none'; 
+                    }
+                    setTimeout(() => {
+                        alert("恭喜！遊戲全破！");
+                        location.reload(); 
+                    }, 500); 
+                } else {
+                    let objEl = document.getElementById(`obj-${activeObj}`);
+                    if(objEl) objEl.style.display = 'none';
+                    updateObjectLockStatus();
+                }
+
+                if(q.nextMap) {
+                    loadMap(q.nextMap);
+                }
+
+            } else {
+                playAudio('sfx-wrong');
+                alert("答案不對喔！再試一次。");
+            }
+        }
+
+        function closeDialog() {
+            document.getElementById('dialog-box').style.display = 'none';
+            bouncePlayer();
+        }
+
+        function playAudio(id) {
+            const audio = document.getElementById(id);
+            if(audio && audio.src) { audio.currentTime = 0; audio.play().catch(e=>{}); }
+        }
+
+        function move(dir) { moveDirection = dir;
+        }
+        function stop() { moveDirection = null; }
+    </script>
+</body>
+</html>
